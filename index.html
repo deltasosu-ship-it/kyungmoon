@@ -1,4 +1,4 @@
-<title>교내 축구대회</title>
+<title>경문 챔피언스</title>
 <style>
 :root{
   --bg:#0A0D14; --bg-elevated:#10141F; --surface:#151A28; --surface-2:#1C2233;
@@ -255,11 +255,7 @@ table.standings td.pts{font-weight:800; color:var(--text);}
 .motm-bar{height:100%; background:var(--gold); border-radius:999px; transition:width .3s ease;}
 .motm-count{width:38px; text-align:right; color:var(--text-faint); font-weight:700; font-variant-numeric:tabular-nums; flex:0 0 auto;}
 
-/* stats */
-.stat-table{width:100%; border-collapse:collapse; font-size:.82rem;}
-.stat-table th{text-align:left; font-size:.66rem; text-transform:uppercase; letter-spacing:.04em; color:var(--text-faint); padding:6px 4px; border-bottom:1px solid var(--border);}
-.stat-table td{padding:8px 4px; border-bottom:1px solid var(--border); font-variant-numeric:tabular-nums;}
-.stat-table tr:last-child td{border-bottom:none;}
+/* records */
 .rank-list{display:flex; flex-direction:column; gap:0;}
 .rank-row{display:flex; align-items:center; gap:10px; padding:9px 2px; border-bottom:1px solid var(--border); font-size:.85rem;}
 .rank-row:last-child{border-bottom:none;}
@@ -267,6 +263,9 @@ table.standings td.pts{font-weight:800; color:var(--text);}
 .rank-name{font-weight:700; flex:1; min-width:0;}
 .rank-team{color:var(--text-faint); font-size:.74rem; font-weight:500;}
 .rank-count{font-weight:800; color:var(--accent); font-variant-numeric:tabular-nums; flex:0 0 auto;}
+.rank-count-gold{color:var(--gold);}
+.rank-count-yellow{color:var(--yellow-card);}
+.rank-count-red{color:var(--live);}
 
 /* forms & admin */
 .notice{background:var(--gold-dim); color:var(--gold); border:1px solid transparent; border-radius:var(--radius-card); padding:10px 14px; font-size:.78rem; font-weight:600;}
@@ -333,13 +332,13 @@ hr.sep{border:none; border-top:1px solid var(--border); margin:14px 0;}
 <div class="app-shell">
   <header class="app-bar" id="appBar">
     <div class="app-bar-inner">
-      <div class="brand"><span class="ball">⚽</span> 교내 축구대회</div>
+      <div class="brand"><span class="ball">⚽</span> 경문 챔피언스</div>
       <button class="icon-btn" data-act="refresh" title="최신 데이터 새로고침">⟳</button>
     </div>
     <nav class="tabs">
       <button class="tab-btn active" data-act="nav" data-view="home">홈</button>
       <button class="tab-btn" data-act="nav" data-view="standings">순위표</button>
-      <button class="tab-btn" data-act="nav" data-view="stats">통계</button>
+      <button class="tab-btn" data-act="nav" data-view="stats">기록</button>
       <button class="tab-btn" data-act="nav" data-view="admin">관리자</button>
     </nav>
   </header>
@@ -578,7 +577,7 @@ function teamsInGroup(gid){
 function computeStandings(gid){
   var table = {};
   teamsInGroup(gid).forEach(function(t){ table[t.id] = {team:t, played:0, win:0, draw:0, loss:0, gf:0, ga:0}; });
-  state.matches.filter(function(m){ return m.groupId===gid && m.status==='finished'; }).forEach(function(m){
+  state.matches.filter(function(m){ return m.groupId===gid && (m.status==='finished' || m.status==='live'); }).forEach(function(m){
     var s = getScore(m); var h = table[m.homeTeamId], a = table[m.awayTeamId];
     if(!h || !a) return;
     h.played++; a.played++; h.gf+=s.home; h.ga+=s.away; a.gf+=s.away; a.ga+=s.home;
@@ -859,48 +858,58 @@ function renderMatchDetail(){
 
 function renderStats(){
   if(state.teams.length===0){
-    return '<div class="view">'+emptyState('통계를 표시할 데이터가 없어요','관리자 모드에서 팀과 경기를 등록해주세요.')+'</div>';
+    return '<div class="view">'+emptyState('기록을 표시할 데이터가 없어요','관리자 모드에서 팀과 경기를 등록해주세요.')+'</div>';
   }
-  var teamStats = state.teams.map(function(t){
-    var gf=0, ga=0, played=0;
-    state.matches.filter(function(m){ return m.status==='finished' && (m.homeTeamId===t.id||m.awayTeamId===t.id); }).forEach(function(m){
-      var s = getScore(m); played++;
-      if(m.homeTeamId===t.id){ gf+=s.home; ga+=s.away; } else { gf+=s.away; ga+=s.home; }
-    });
-    return {team:t, played:played, gf:gf, ga:ga};
-  }).sort(function(a,b){ return b.gf-a.gf; });
-
-  var goals = {}, assists = {};
+  var goals = {}, assists = {}, yellows = {}, reds = {};
   state.matches.forEach(function(m){
     (m.events||[]).forEach(function(e){
       if(e.type==='goal'){
         goals[e.playerId] = (goals[e.playerId]||0)+1;
         if(e.assistPlayerId) assists[e.assistPlayerId] = (assists[e.assistPlayerId]||0)+1;
+      } else if(e.type==='yellow'){
+        yellows[e.playerId] = (yellows[e.playerId]||0)+1;
+      } else if(e.type==='red'){
+        reds[e.playerId] = (reds[e.playerId]||0)+1;
       }
     });
   });
+  var contrib = {};
+  Object.keys(goals).forEach(function(pid){ contrib[pid] = (contrib[pid]||0) + goals[pid]; });
+  Object.keys(assists).forEach(function(pid){ contrib[pid] = (contrib[pid]||0) + assists[pid]; });
+
+  var motmWins = {};
+  Object.keys(state.motm).forEach(function(matchId){
+    var data = state.motm[matchId];
+    if(!data || !data.votes || !data.votes.length) return;
+    var counts = {};
+    data.votes.forEach(function(v){ counts[v.playerId] = (counts[v.playerId]||0)+1; });
+    var bestId = null, bestCount = -1;
+    Object.keys(counts).forEach(function(pid){ if(counts[pid] > bestCount){ bestCount = counts[pid]; bestId = pid; } });
+    if(bestId) motmWins[bestId] = (motmWins[bestId]||0) + 1;
+  });
+
   function rankList(map){
     return Object.keys(map).map(function(pid){ return {p:playerById(pid), c:map[pid]}; })
       .filter(function(x){ return x.p; }).sort(function(a,b){ return b.c-a.c; }).slice(0,10);
   }
-  var topScorers = rankList(goals), topAssists = rankList(assists);
-
-  var teamTable = '<div class="table-wrap"><table class="stat-table"><thead><tr><th>팀</th><th>경기</th><th>득점</th><th>실점</th><th>득실</th></tr></thead><tbody>'
-    + teamStats.map(function(r){ return '<tr><td><div class="team-name-cell" style="display:flex;align-items:center;gap:8px">'+teamBadge(r.team)+esc(r.team.name)+'</div></td><td>'+r.played+'</td><td>'+r.gf+'</td><td>'+r.ga+'</td><td>'+(r.gf-r.ga>0?'+':'')+(r.gf-r.ga)+'</td></tr>'; }).join('')
-    + '</tbody></table></div>';
-
-  function rankHtml(list){
+  function rankHtml(list, colorClass){
     if(!list.length) return emptyRow('아직 기록이 없습니다');
     return '<div class="rank-list">'+list.map(function(r,i){
       var team = teamById(r.p.teamId);
-      return '<div class="rank-row"><span class="rank-num">'+(i+1)+'</span><span class="rank-name">'+esc(r.p.name)+' <span class="rank-team">'+esc(team?team.name:'')+'</span></span><span class="rank-count">'+r.c+'</span></div>';
+      return '<div class="rank-row"><span class="rank-num">'+(i+1)+'</span><span class="rank-name">'+esc(r.p.name)+' <span class="rank-team">'+esc(team?team.name:'')+'</span></span><span class="rank-count'+(colorClass?' '+colorClass:'')+'">'+r.c+'</span></div>';
     }).join('')+'</div>';
   }
 
+  var topMotm = rankList(motmWins), topContrib = rankList(contrib), topScorers = rankList(goals),
+      topAssists = rankList(assists), topYellow = rankList(yellows), topRed = rankList(reds);
+
   return '<div class="view">'
-    + '<div class="section-block"><div class="section-title">팀 기록</div><div class="card">'+teamTable+'</div></div>'
+    + '<div class="section-block"><div class="section-title">최고의 플레이어 (MOTM)</div><div class="card">'+rankHtml(topMotm,'rank-count-gold')+'</div></div>'
+    + '<div class="section-block"><div class="section-title">득점+도움</div><div class="card">'+rankHtml(topContrib)+'</div></div>'
     + '<div class="section-block"><div class="section-title">득점왕</div><div class="card">'+rankHtml(topScorers)+'</div></div>'
     + '<div class="section-block"><div class="section-title">도움왕</div><div class="card">'+rankHtml(topAssists)+'</div></div>'
+    + '<div class="section-block"><div class="section-title">경고 순위</div><div class="card">'+rankHtml(topYellow,'rank-count-yellow')+'</div></div>'
+    + '<div class="section-block"><div class="section-title">퇴장 순위</div><div class="card">'+rankHtml(topRed,'rank-count-red')+'</div></div>'
   + '</div>';
 }
 
