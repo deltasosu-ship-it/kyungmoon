@@ -176,22 +176,49 @@ table.standings td.pts{font-weight:800; color:var(--text);}
 .pitch-box-bottom{position:absolute; left:22%; right:22%; bottom:4%; height:12%; border:2px solid rgba(255,255,255,.38); border-bottom:none;}
 .pitch-formation-tag{position:absolute; font-size:.62rem; font-weight:800; color:#fff; background:rgba(0,0,0,.32); padding:3px 8px; border-radius:999px; letter-spacing:.02em; z-index:2;}
 .pitch-player{position:absolute; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; gap:2px; width:15%; min-width:38px; max-width:64px; z-index:1; touch-action:none;}
-.jersey-badge{
-  position:relative; width:100%; aspect-ratio:1; margin:0 auto;
-  clip-path:polygon(30% 0%,70% 0%,70% 10%,100% 24%,84% 42%,70% 32%,70% 100%,30% 100%,30% 32%,16% 42%,0% 24%,30% 10%);
+.num-badge{
+  width:100%; aspect-ratio:1; margin:0 auto; border-radius:50%;
   display:flex; align-items:center; justify-content:center;
-  box-shadow:0 2px 6px rgba(0,0,0,.4); border:1px solid rgba(255,255,255,.5);
+  box-shadow:0 2px 6px rgba(0,0,0,.4); border:2px solid rgba(255,255,255,.85);
 }
-.jersey-num{color:#fff; font-weight:800; font-size:clamp(.7rem,3vw,1.05rem); text-shadow:0 1px 2px rgba(0,0,0,.45); font-variant-numeric:tabular-nums; line-height:1;}
+.num-badge .num{color:#fff; font-weight:800; font-size:clamp(.7rem,3vw,1.05rem); text-shadow:0 1px 2px rgba(0,0,0,.45); font-variant-numeric:tabular-nums; line-height:1;}
 .pp-name{font-size:.62rem; font-weight:700; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.8); text-align:center; line-height:1.15; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .bench-title{font-size:.72rem; font-weight:800; color:var(--text-dim); text-transform:uppercase; letter-spacing:.04em; margin-bottom:8px; display:flex; align-items:center; gap:6px;}
 
-/* lineup / formation editor (admin) */
+/* lineup / formation editor (admin, drag & drop) */
 .lineup-editor-grid{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
-.lineup-editor-col .field{margin-bottom:10px;}
-.slot-row{display:flex; align-items:center; gap:8px; margin-bottom:6px;}
-.slot-tag{width:42px; flex:0 0 auto; font-size:.66rem; font-weight:800; color:var(--text-dim); background:var(--surface-2); border:1px solid var(--border); border-radius:6px; padding:4px 0; text-align:center;}
-.slot-row select{flex:1;}
+.mini-pitch{
+  position:relative; width:100%; aspect-ratio:3/4; border-radius:12px; overflow:hidden; margin-bottom:10px;
+  background:repeating-linear-gradient(180deg,#1c8a4c 0,#1c8a4c 12.5%,#1f974f 12.5%,#1f974f 25%);
+  border:1px solid var(--border);
+}
+.mini-pitch .pitch-outline{position:absolute; inset:3%; border:2px solid rgba(255,255,255,.35); border-radius:4px;}
+.mini-pitch .pitch-box-bottom{position:absolute; left:24%; right:24%; bottom:3%; height:16%; border:2px solid rgba(255,255,255,.35); border-bottom:none;}
+.pitch-slot-empty{width:100%; aspect-ratio:1; border-radius:50%; border:2px dashed rgba(255,255,255,.4); margin:0 auto;}
+.drag-handle{cursor:grab; touch-action:none;}
+.drag-handle:active{cursor:grabbing;}
+.drag-ghost{opacity:.85; transform:scale(1.08); filter:drop-shadow(0 4px 10px rgba(0,0,0,.5));}
+.bench-dnd{display:flex; flex-wrap:wrap; gap:10px; padding:10px; background:var(--bg-elevated); border:1px dashed var(--border); border-radius:10px; min-height:66px;}
+.bench-chip{display:flex; flex-direction:column; align-items:center; gap:2px; width:46px;}
+.bench-chip .num-badge{border-color:var(--border);}
+.bench-chip .num-badge .num{color:#fff; text-shadow:none;}
+.bench-chip-name{font-size:.6rem; font-weight:700; color:var(--text-dim); text-align:center; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.bench-empty-hint{font-size:.72rem; color:var(--text-faint); align-self:center;}
+
+/* match stats */
+.stat-edit-grid{display:flex; flex-direction:column; gap:8px;}
+.stat-edit-row{display:grid; grid-template-columns:64px 1fr 64px; gap:8px; align-items:center;}
+.stat-edit-row input{text-align:center;}
+.stat-edit-label{font-size:.72rem; color:var(--text-dim); text-align:center;}
+.stat-cmp-block{margin-bottom:14px;}
+.stat-cmp-block:last-child{margin-bottom:0;}
+.stat-cmp-row{display:grid; grid-template-columns:40px 1fr 40px; gap:10px; align-items:center; margin-bottom:4px;}
+.stat-cmp-val{font-size:.8rem; font-weight:800; font-variant-numeric:tabular-nums; text-align:center;}
+.stat-cmp-bar{display:flex; height:8px; border-radius:999px; overflow:hidden; background:var(--surface-2);}
+.stat-cmp-fill{height:100%;}
+.stat-cmp-home{border-radius:999px 0 0 999px;}
+.stat-cmp-away{border-radius:0 999px 999px 0;}
+.stat-cmp-label{font-size:.68rem; color:var(--text-faint); text-align:center; text-transform:uppercase; letter-spacing:.03em;}
 
 .timeline{position:relative; display:flex; flex-direction:column; gap:0;}
 .timeline::before{content:'';position:absolute; left:50%; top:2px; bottom:2px; width:2px; background:var(--border); transform:translateX(-50%);}
@@ -451,6 +478,25 @@ function normalizeSideLineup(v){
 function normalizeLineups(lineups){
   return { home: normalizeSideLineup(lineups && lineups.home), away: normalizeSideLineup(lineups && lineups.away) };
 }
+var STAT_FIELDS = [
+  {key:'shots', label:'슈팅 수'},
+  {key:'shotsOnTarget', label:'유효 슈팅'},
+  {key:'possession', label:'점유율', suffix:'%'},
+  {key:'boxTouches', label:'상대 박스 안 터치'},
+  {key:'bigChances', label:'빅찬스'},
+  {key:'bigChancesMissed', label:'빅찬스 미스'},
+  {key:'fouls', label:'반칙'},
+  {key:'offsides', label:'오프사이드'}
+];
+function emptyStats(){ var s = {}; STAT_FIELDS.forEach(function(f){ s[f.key] = 0; }); return s; }
+function normalizeStatsSide(v){
+  var out = emptyStats();
+  if(v && typeof v==='object'){ STAT_FIELDS.forEach(function(f){ if(typeof v[f.key]==='number') out[f.key] = v[f.key]; }); }
+  return out;
+}
+function normalizeStats(stats){
+  return { home: normalizeStatsSide(stats && stats.home), away: normalizeStatsSide(stats && stats.away) };
+}
 function lineupPlayers(m){
   var homeIds = Object.values(m.lineups.home.slots);
   var awayIds = Object.values(m.lineups.away.slots);
@@ -458,8 +504,21 @@ function lineupPlayers(m){
   if(!awayIds.length) awayIds = state.players.filter(function(p){ return p.teamId===m.awayTeamId; }).map(function(p){ return p.id; });
   return homeIds.concat(awayIds).map(playerById).filter(Boolean);
 }
-function jerseyBadge(p, team){
-  return '<div class="jersey-badge" style="background:'+esc((team&&team.color)||'#666')+'"><span class="jersey-num">'+(p.number!=null?esc(p.number):'-')+'</span></div>';
+function numBadge(p, team){
+  return '<div class="num-badge" style="background:'+esc((team&&team.color)||'#666')+'"><span class="num">'+(p.number!=null?esc(p.number):'-')+'</span></div>';
+}
+function autoPlaceFormation(roster, formationKey){
+  var slots = FORMATIONS[formationKey] || FORMATIONS['4-4-2'];
+  var byGroup = { GK:[], DF:[], MF:[], FW:[] };
+  roster.slice().sort(function(a,b){ return (a.number!=null?a.number:999)-(b.number!=null?b.number:999); })
+    .forEach(function(p){ (byGroup[p.position] || byGroup.MF).push(p); });
+  var used = {}, out = {};
+  slots.forEach(function(slot){
+    var pool = byGroup[slot.group] || [];
+    var candidate = pool.find(function(p){ return !used[p.id]; });
+    if(candidate){ out[slot.id] = candidate.id; used[candidate.id] = true; }
+  });
+  return out;
 }
 function pitchSlotPlayers(sideLineup, isHome, team){
   var formation = sideLineup.formation;
@@ -472,7 +531,7 @@ function pitchSlotPlayers(sideLineup, isHome, team){
     count++;
     var pitchY = isHome ? (50 + slot.y*0.5) : (50 - slot.y*0.5);
     html += '<div class="pitch-player" data-side="'+(isHome?'home':'away')+'" data-slot="'+slot.id+'" data-player="'+p.id+'" style="left:'+slot.x+'%;top:'+pitchY+'%">'
-      + jerseyBadge(p, team)
+      + numBadge(p, team)
       + '<span class="pp-name">'+esc(p.name)+'</span>'
     + '</div>';
   });
@@ -541,6 +600,7 @@ function applyDocValue(name, val){
     state.matches = (val||[]).map(function(m){
       var merged = Object.assign({ events:[], status:'scheduled' }, m);
       merged.lineups = normalizeLineups(merged.lineups);
+      merged.stats = normalizeStats(merged.stats);
       return merged;
     });
   } else {
@@ -742,6 +802,25 @@ function motmCard(m){
   return voteCardWrap('MOTM (맨 오브 더 매치)', formPart + '<div class="motm-board">'+board+'</div>');
 }
 
+function statsCard(m){
+  var home = teamById(m.homeTeamId), away = teamById(m.awayTeamId);
+  var hasAny = STAT_FIELDS.some(function(f){ return m.stats.home[f.key] || m.stats.away[f.key]; });
+  if(!hasAny) return '';
+  var rows = STAT_FIELDS.map(function(f){
+    var h = m.stats.home[f.key], a = m.stats.away[f.key];
+    var total = h+a;
+    var hp = total ? (h/total*100) : 50, ap = total ? (a/total*100) : 50;
+    return '<div class="stat-cmp-block">'
+      + '<div class="stat-cmp-row">'
+        + '<span class="stat-cmp-val">'+h+(f.suffix||'')+'</span>'
+        + '<div class="stat-cmp-bar"><div class="stat-cmp-fill stat-cmp-home" style="width:'+hp+'%;background:'+esc((home&&home.color)||'#3B82F6')+'"></div><div class="stat-cmp-fill stat-cmp-away" style="width:'+ap+'%;background:'+esc((away&&away.color)||'#F04438')+'"></div></div>'
+        + '<span class="stat-cmp-val">'+a+(f.suffix||'')+'</span>'
+      + '</div>'
+      + '<div class="stat-cmp-label">'+f.label+'</div>'
+    + '</div>';
+  }).join('');
+  return '<div class="card"><h3>경기 통계</h3>'+rows+'</div>';
+}
 function renderMatchDetail(){
   var m = state.matches.find(function(x){ return x.id===state.matchId; });
   if(!m){
@@ -765,6 +844,7 @@ function renderMatchDetail(){
     + '</div>'
     + pitchCard(m)
     + '<div class="card"><h3>경기 타임라인</h3>'+(events.length?'<div class="timeline">'+events.map(function(e){ return eventRow(e,m); }).join('')+'</div>':emptyRow('아직 등록된 이벤트가 없습니다'))+'</div>'
+    + statsCard(m)
     + ratingCard(m)
     + motmCard(m)
   + '</div>';
@@ -938,25 +1018,49 @@ function renderAdminResults(){
   var homeRoster = state.players.filter(function(p){ return p.teamId===m.homeTeamId; }).sort(function(a,b){ return (a.number!=null?a.number:999)-(b.number!=null?b.number:999); });
   var awayRoster = state.players.filter(function(p){ return p.teamId===m.awayTeamId; }).sort(function(a,b){ return (a.number!=null?a.number:999)-(b.number!=null?b.number:999); });
 
-  function slotRow(side, slot, roster){
-    var assignedId = m.lineups[side].slots[slot.id] || '';
-    var opts = '<option value="">미배정</option>' + roster.map(function(p){
-      return '<option value="'+p.id+'"'+(assignedId===p.id?' selected':'')+'>#'+(p.number!=null?p.number:'-')+' '+esc(p.name)+'</option>';
-    }).join('');
-    return '<div class="slot-row"><span class="slot-tag">'+slot.label+'</span><select onchange="App.assignSlot(\''+m.id+'\',\''+side+'\',\''+slot.id+'\',this.value)">'+opts+'</select></div>';
-  }
-  function lineupEditorCol(side, team, roster){
+  function editorPitch(side, team, roster){
     var sideLineup = m.lineups[side];
-    var fOpts = Object.keys(FORMATIONS).map(function(f){ return '<option value="'+f+'"'+(sideLineup.formation===f?' selected':'')+'>'+f+'</option>'; }).join('');
-    if(!roster.length) return '<div><div class="lineup-col-title">'+teamBadge(team)+esc(team?team.name:'')+'</div>'+emptyRow('선수가 없습니다')+'</div>';
-    return '<div class="lineup-editor-col"><div class="lineup-col-title">'+teamBadge(team)+esc(team?team.name:'')+'</div>'
-      + '<div class="field"><label>포메이션</label><select onchange="App.setFormation(\''+m.id+'\',\''+side+'\',this.value)">'+fOpts+'</select></div>'
-      + FORMATIONS[sideLineup.formation].map(function(slot){ return slotRow(side, slot, roster); }).join('')
+    var slots = FORMATIONS[sideLineup.formation];
+    var assigned = sideLineup.slots;
+    var assignedIds = Object.values(assigned);
+    var bench = roster.filter(function(p){ return assignedIds.indexOf(p.id)===-1; });
+    var pitchHtml = slots.map(function(slot){
+      var pid = assigned[slot.id];
+      var p = pid ? playerById(pid) : null;
+      var inner = p
+        ? '<div class="drag-handle" data-side="'+side+'" data-slot="'+slot.id+'" data-player="'+p.id+'">'+numBadge(p, team)+'<span class="pp-name">'+esc(p.name)+'</span></div>'
+        : '<div class="pitch-slot-empty" title="'+esc(slot.label)+'"></div>';
+      return '<div class="drop-zone pitch-player" data-side="'+side+'" data-slot="'+slot.id+'" style="left:'+slot.x+'%;top:'+slot.y+'%">'+inner+'</div>';
+    }).join('');
+    var benchHtml = bench.length
+      ? bench.map(function(p){
+          return '<div class="bench-chip drag-handle" data-side="'+side+'" data-player="'+p.id+'">'+numBadge(p, team)+'<span class="bench-chip-name">'+esc(p.name)+'</span></div>';
+        }).join('')
+      : '<span class="bench-empty-hint">벤치 선수 없음</span>';
+    return '<div class="lineup-editor-col">'
+      + '<div class="lineup-col-title">'+teamBadge(team)+esc(team?team.name:'')+'</div>'
+      + (roster.length ? '' : emptyRow('선수가 없습니다'))
+      + '<div class="lineup-dnd" data-match="'+m.id+'" data-side="'+side+'">'
+        + '<div class="mini-pitch">'
+          + '<div class="pitch-outline"></div><div class="pitch-box-bottom"></div>'
+          + pitchHtml
+        + '</div>'
+        + '<div class="bench-dnd drop-zone" data-side="'+side+'">'+benchHtml+'</div>'
+      + '</div>'
     + '</div>';
   }
-  html += '<div class="card"><h3>라인업 / 포메이션</h3><div class="lineup-editor-grid">'
-    + lineupEditorCol('home', home, homeRoster) + lineupEditorCol('away', away, awayRoster)
-  + '</div></div>';
+  var fOptsHtml = function(side){
+    return Object.keys(FORMATIONS).map(function(f){ return '<option value="'+f+'"'+(m.lineups[side].formation===f?' selected':'')+'>'+f+'</option>'; }).join('');
+  };
+  html += '<div class="card"><h3>라인업 / 포메이션</h3>'
+    + '<p class="hint">포메이션을 고르면 등록된 선수가 포지션에 맞춰 자동 배치됩니다. 이후 선수 아이콘을 드래그해서 자리를 바꾸거나 벤치와 교체할 수 있어요.</p>'
+    + '<div class="form-grid">'
+      + '<div class="field"><label>'+esc(home?home.name:'홈')+' 포메이션</label><select onchange="App.setFormation(\''+m.id+'\',\'home\',this.value)">'+fOptsHtml('home')+'</select></div>'
+      + '<div class="field"><label>'+esc(away?away.name:'원정')+' 포메이션</label><select onchange="App.setFormation(\''+m.id+'\',\'away\',this.value)">'+fOptsHtml('away')+'</select></div>'
+    + '</div>'
+    + '<div class="lineup-editor-grid" style="margin-top:14px">'
+      + editorPitch('home', home, homeRoster) + editorPitch('away', away, awayRoster)
+    + '</div></div>';
 
   html += '<div class="card"><h3>경기 상태</h3><div class="status-btns">'
     + ['scheduled','live','finished'].map(function(k){ var l={scheduled:'예정',live:'진행중',finished:'종료'}[k]; return '<button class="btn'+(m.status===k?' btn-primary':'')+'" data-act="set-match-status" data-id="'+m.id+'" data-status="'+k+'">'+l+'</button>'; }).join('')
@@ -982,6 +1086,19 @@ function renderAdminResults(){
         var typeLabel = {goal:'득점',yellow:'경고',red:'퇴장',sub:'교체'}[e.type];
         return '<div class="event-row-admin"><span>'+e.minute+"'"+'</span><span class="grow">'+typeLabel+' · '+esc(p?p.name:'')+'</span>'+delBtn('event', e.id).replace('data-act="del-event"','data-act="del-event" data-match="'+m.id+'"')+'</div>';
       }).join('') : emptyRow('등록된 이벤트가 없습니다'))+'</div>'
+  + '</div>';
+
+  html += '<div class="card"><h3>경기 통계 입력</h3>'
+    + '<div class="event-add-row" style="grid-template-columns:1fr 1fr;font-size:.68rem;color:var(--text-faint);text-transform:uppercase;letter-spacing:.03em;margin-bottom:2px">'
+      + '<span style="text-align:center">'+esc(home?home.name:'홈')+'</span><span style="text-align:center">'+esc(away?away.name:'원정')+'</span>'
+    + '</div>'
+    + '<div class="stat-edit-grid">' + STAT_FIELDS.map(function(f){
+        return '<div class="stat-edit-row">'
+          + '<input type="number" min="0" value="'+m.stats.home[f.key]+'" onchange="App.updateStat(\''+m.id+'\',\'home\',\''+f.key+'\',this.value)">'
+          + '<span class="stat-edit-label">'+f.label+'</span>'
+          + '<input type="number" min="0" value="'+m.stats.away[f.key]+'" onchange="App.updateStat(\''+m.id+'\',\'away\',\''+f.key+'\',this.value)">'
+        + '</div>';
+      }).join('') + '</div>'
   + '</div>';
 
   return html;
@@ -1081,7 +1198,7 @@ function addMatch(){
   var awayTeamId = document.getElementById('newMatchAway').value;
   if(!date){ toast('경기 일시를 입력해주세요','error'); return; }
   if(homeTeamId===awayTeamId){ toast('홈팀과 원정팀은 서로 달라야 합니다','error'); return; }
-  state.matches.push({ id: uid('match'), date: date, groupId: groupId, homeTeamId: homeTeamId, awayTeamId: awayTeamId, status:'scheduled', events:[], lineups:{home:emptySideLineup(),away:emptySideLineup()} });
+  state.matches.push({ id: uid('match'), date: date, groupId: groupId, homeTeamId: homeTeamId, awayTeamId: awayTeamId, status:'scheduled', events:[], lineups:{home:emptySideLineup(),away:emptySideLineup()}, stats:{home:emptyStats(),away:emptyStats()} });
   persist('matches'); render(); toast('경기가 추가되었습니다','success');
 }
 function updateMatchField(id, field, val){
@@ -1113,14 +1230,33 @@ function updateEvtPlayerOptions(){
 function setFormation(matchId, side, formationKey){
   var m = state.matches.find(function(x){ return x.id===matchId; }); if(!m) return;
   if(!FORMATIONS[formationKey]) return;
-  m.lineups[side] = { formation: formationKey, slots: {} };
+  var teamId = side==='home' ? m.homeTeamId : m.awayTeamId;
+  var roster = state.players.filter(function(p){ return p.teamId===teamId; });
+  m.lineups[side] = { formation: formationKey, slots: autoPlaceFormation(roster, formationKey) };
   persist('matches'); render();
 }
-function assignSlot(matchId, side, slotId, playerId){
+function performDragSwap(matchId, side, srcType, srcSlot, srcPlayerId, tgtType, tgtSlot){
   var m = state.matches.find(function(x){ return x.id===matchId; }); if(!m) return;
   var slots = m.lineups[side].slots;
-  Object.keys(slots).forEach(function(k){ if(slots[k]===playerId) delete slots[k]; });
-  if(playerId){ slots[slotId] = playerId; } else { delete slots[slotId]; }
+  if(srcType==='slot' && tgtType==='slot'){
+    if(srcSlot===tgtSlot) return;
+    var occupant = slots[tgtSlot];
+    if(occupant){ slots[srcSlot] = occupant; } else { delete slots[srcSlot]; }
+    slots[tgtSlot] = srcPlayerId;
+  } else if(srcType==='slot' && tgtType==='bench'){
+    delete slots[srcSlot];
+  } else if(srcType==='bench' && tgtType==='slot'){
+    slots[tgtSlot] = srcPlayerId;
+  } else {
+    return; // bench -> bench: nothing to do, order is not meaningful
+  }
+  persist('matches'); render();
+}
+function updateStat(matchId, side, key, val){
+  var m = state.matches.find(function(x){ return x.id===matchId; }); if(!m) return;
+  var num = parseFloat(val);
+  if(isNaN(num) || num<0) num = 0;
+  m.stats[side][key] = num;
   persist('matches'); render();
 }
 function setMatchStatus(matchId, status){
@@ -1274,6 +1410,49 @@ document.addEventListener('input', function(e){
   }
 });
 
+/* ---------- lineup drag & drop (admin editor only) ---------- */
+var dragState = null;
+document.addEventListener('pointerdown', function(e){
+  var handle = e.target.closest('.drag-handle');
+  if(!handle) return;
+  var wrap = handle.closest('.lineup-dnd');
+  if(!wrap) return;
+  e.preventDefault();
+  var rect = handle.getBoundingClientRect();
+  var ghost = handle.cloneNode(true);
+  ghost.classList.add('drag-ghost');
+  ghost.style.position = 'fixed';
+  ghost.style.left = rect.left+'px'; ghost.style.top = rect.top+'px';
+  ghost.style.width = rect.width+'px'; ghost.style.height = rect.height+'px';
+  ghost.style.pointerEvents = 'none'; ghost.style.zIndex = '999';
+  document.body.appendChild(ghost);
+  handle.style.opacity = '0.25';
+  dragState = {
+    matchId: wrap.dataset.match, side: wrap.dataset.side,
+    srcType: handle.dataset.slot ? 'slot' : 'bench', srcSlot: handle.dataset.slot || null,
+    playerId: handle.dataset.player, sourceEl: handle, ghost: ghost,
+    offsetX: e.clientX-rect.left, offsetY: e.clientY-rect.top
+  };
+});
+document.addEventListener('pointermove', function(e){
+  if(!dragState) return;
+  dragState.ghost.style.left = (e.clientX-dragState.offsetX)+'px';
+  dragState.ghost.style.top = (e.clientY-dragState.offsetY)+'px';
+});
+document.addEventListener('pointerup', function(e){
+  if(!dragState) return;
+  var ds = dragState; dragState = null;
+  ds.ghost.style.display = 'none';
+  var el = document.elementFromPoint(e.clientX, e.clientY);
+  ds.ghost.remove();
+  if(ds.sourceEl) ds.sourceEl.style.opacity = '';
+  var dropZone = el ? el.closest('.drop-zone') : null;
+  if(!dropZone || dropZone.dataset.side !== ds.side) return;
+  var tgtType = dropZone.dataset.slot ? 'slot' : 'bench';
+  var tgtSlot = dropZone.dataset.slot || null;
+  performDragSwap(ds.matchId, ds.side, ds.srcType, ds.srcSlot, ds.playerId, tgtType, tgtSlot);
+});
+
 /* expose for inline onchange handlers */
 window.App = {
   updateTeamField: updateTeamField,
@@ -1282,8 +1461,8 @@ window.App = {
   updateMatchField: updateMatchField,
   selectAdminMatch: selectAdminMatch,
   setFormation: setFormation,
-  assignSlot: assignSlot,
   updateEvtPlayerOptions: updateEvtPlayerOptions,
+  updateStat: updateStat,
   render: render
 };
 
