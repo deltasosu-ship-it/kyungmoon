@@ -181,7 +181,10 @@ table.standings td.pts{font-weight:800; color:var(--text);}
   display:flex; align-items:center; justify-content:center;
   box-shadow:0 2px 6px rgba(0,0,0,.4); border:2px solid rgba(255,255,255,.85);
 }
-.num-badge .num{color:#fff; font-weight:800; font-size:clamp(.7rem,3vw,1.05rem); text-shadow:0 1px 2px rgba(0,0,0,.45); font-variant-numeric:tabular-nums; line-height:1;}
+.num-badge .num{
+  color:#fff; font-weight:800; font-size:clamp(.7rem,3vw,1.05rem); font-variant-numeric:tabular-nums; line-height:1;
+  -webkit-text-stroke:.4px rgba(0,0,0,.55); paint-order:stroke fill; text-shadow:0 1px 1px rgba(0,0,0,.3);
+}
 .pp-name{font-size:.62rem; font-weight:700; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.8); text-align:center; line-height:1.15; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .bench-title{font-size:.72rem; font-weight:800; color:var(--text-dim); text-transform:uppercase; letter-spacing:.04em; margin-bottom:8px; display:flex; align-items:center; gap:6px;}
 
@@ -417,10 +420,14 @@ var FORMATIONS = {
   ]
 };
 
+var ADMIN_PASSWORD = "1234";
+function readAdminAuthed(){
+  try{ return sessionStorage.getItem('adminAuthed')==='1'; }catch(e){ return false; }
+}
 var state = {
   teams:[], players:[], groups:[], matches:[], ratings:{}, motm:{},
   view:'home', matchId:null, cameFrom:'home',
-  adminTab:'teams', adminMatchId:null,
+  adminTab:'teams', adminMatchId:null, adminAuthed: readAdminAuthed(),
   loading:true, fatalError:null
 };
 var pendingDelete = null;
@@ -481,7 +488,7 @@ function normalizeLineups(lineups){
 var STAT_FIELDS = [
   {key:'shots', label:'슈팅 수'},
   {key:'shotsOnTarget', label:'유효 슈팅'},
-  {key:'possession', label:'점유율', suffix:'%'},
+  {key:'possession', label:'점유율', suffix:'%', max:100},
   {key:'boxTouches', label:'상대 박스 안 터치'},
   {key:'bigChances', label:'빅찬스'},
   {key:'bigChancesMissed', label:'빅찬스 미스'},
@@ -1093,17 +1100,40 @@ function renderAdminResults(){
       + '<span style="text-align:center">'+esc(home?home.name:'홈')+'</span><span style="text-align:center">'+esc(away?away.name:'원정')+'</span>'
     + '</div>'
     + '<div class="stat-edit-grid">' + STAT_FIELDS.map(function(f){
+        var maxAttr = f.max!=null ? ' max="'+f.max+'"' : '';
         return '<div class="stat-edit-row">'
-          + '<input type="number" min="0" value="'+m.stats.home[f.key]+'" onchange="App.updateStat(\''+m.id+'\',\'home\',\''+f.key+'\',this.value)">'
-          + '<span class="stat-edit-label">'+f.label+'</span>'
-          + '<input type="number" min="0" value="'+m.stats.away[f.key]+'" onchange="App.updateStat(\''+m.id+'\',\'away\',\''+f.key+'\',this.value)">'
+          + '<input type="number" min="0"'+maxAttr+' value="'+m.stats.home[f.key]+'" onchange="App.updateStat(\''+m.id+'\',\'home\',\''+f.key+'\',this.value)">'
+          + '<span class="stat-edit-label">'+f.label+(f.key==='possession'?' (한쪽 입력 시 자동 계산)':'')+'</span>'
+          + '<input type="number" min="0"'+maxAttr+' value="'+m.stats.away[f.key]+'" onchange="App.updateStat(\''+m.id+'\',\'away\',\''+f.key+'\',this.value)">'
         + '</div>';
       }).join('') + '</div>'
   + '</div>';
 
   return html;
 }
+function renderAdminLogin(){
+  return '<div class="view"><div class="card" style="max-width:320px;margin:40px auto;text-align:center">'
+    + '<h3>관리자 인증</h3>'
+    + '<p class="hint">관리자 비밀번호를 입력해주세요.</p>'
+    + '<input type="password" id="adminPassword" placeholder="비밀번호" style="text-align:center;margin-bottom:10px" onkeydown="if(event.key===\'Enter\'){App.submitAdminLogin();}">'
+    + '<button class="btn btn-primary btn-block" data-act="admin-login">확인</button>'
+  + '</div></div>';
+}
+function submitAdminLogin(){
+  var input = document.getElementById('adminPassword');
+  if(!input) return;
+  if(input.value === ADMIN_PASSWORD){
+    state.adminAuthed = true;
+    try{ sessionStorage.setItem('adminAuthed','1'); }catch(e){}
+    render();
+  } else {
+    toast('비밀번호가 올바르지 않습니다','error');
+    input.value = '';
+    input.focus();
+  }
+}
 function renderAdmin(){
+  if(!state.adminAuthed) return renderAdminLogin();
   var tabs = [['teams','팀'],['players','선수'],['groups','조'],['matches','경기'],['results','결과/이벤트']];
   var tabHtml = '<div class="admin-tabs">'+tabs.map(function(t){ return '<button class="admin-tab'+(state.adminTab===t[0]?' active':'')+'" data-act="admin-tab" data-tab="'+t[0]+'">'+t[1]+'</button>'; }).join('')+'</div>';
   var body = '';
@@ -1113,7 +1143,7 @@ function renderAdmin(){
   else if(state.adminTab==='matches') body = renderAdminMatches();
   else body = renderAdminResults();
   return '<div class="view">'
-    + '<div class="notice">이 관리자 화면은 별도 로그인 없이 열려 있어요. 신뢰할 수 있는 사람과만 링크를 공유해주세요.</div>'
+    + '<div class="notice">이 관리자 화면은 비밀번호로 보호되어 있어요. 그래도 신뢰할 수 있는 사람과만 접근 정보를 공유해주세요.</div>'
     + tabHtml + body
   + '</div>';
 }
@@ -1256,7 +1286,13 @@ function updateStat(matchId, side, key, val){
   var m = state.matches.find(function(x){ return x.id===matchId; }); if(!m) return;
   var num = parseFloat(val);
   if(isNaN(num) || num<0) num = 0;
-  m.stats[side][key] = num;
+  if(key==='possession'){
+    if(num>100) num = 100;
+    m.stats[side][key] = num;
+    m.stats[side==='home'?'away':'home'][key] = Math.round((100-num)*10)/10;
+  } else {
+    m.stats[side][key] = num;
+  }
   persist('matches'); render();
 }
 function setMatchStatus(matchId, status){
@@ -1387,6 +1423,7 @@ document.addEventListener('click', function(e){
     case 'open-match': openMatch(id); break;
     case 'back': goBack(); break;
     case 'refresh': refreshData(); break;
+    case 'admin-login': submitAdminLogin(); break;
     case 'admin-tab': state.adminTab = t.dataset.tab; render(); break;
     case 'add-team': addTeam(); break;
     case 'del-team': confirmOrDelete('team', id, deleteTeam); break;
@@ -1463,6 +1500,7 @@ window.App = {
   setFormation: setFormation,
   updateEvtPlayerOptions: updateEvtPlayerOptions,
   updateStat: updateStat,
+  submitAdminLogin: submitAdminLogin,
   render: render
 };
 
