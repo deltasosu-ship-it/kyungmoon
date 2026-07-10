@@ -186,6 +186,7 @@ table.standings td.pts{font-weight:800; color:var(--text);}
   -webkit-text-stroke:.4px rgba(0,0,0,.55); paint-order:stroke fill; text-shadow:0 1px 1px rgba(0,0,0,.3);
 }
 .pp-name{font-size:.62rem; font-weight:700; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.8); text-align:center; line-height:1.15; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.pp-pos{display:block; font-size:.56rem; font-weight:800; color:rgba(255,255,255,.9); text-shadow:0 1px 2px rgba(0,0,0,.6); text-transform:uppercase; letter-spacing:.03em; line-height:1.4; text-align:center;}
 .bench-title{font-size:.72rem; font-weight:800; color:var(--text-dim); text-transform:uppercase; letter-spacing:.04em; margin-bottom:8px; display:flex; align-items:center; gap:6px;}
 
 /* lineup / formation editor (admin, drag & drop) */
@@ -266,6 +267,9 @@ table.standings td.pts{font-weight:800; color:var(--text);}
 .rank-count-gold{color:var(--gold);}
 .rank-count-yellow{color:var(--yellow-card);}
 .rank-count-red{color:var(--live);}
+.rank-row-first{background:var(--gold-dim); border-radius:8px; padding-left:8px; padding-right:8px; margin:0 -8px;}
+.rank-row-first .rank-num{color:var(--gold); font-size:.95rem;}
+.rank-row-first .rank-name{font-weight:800;}
 
 /* forms & admin */
 .notice{background:var(--gold-dim); color:var(--gold); border:1px solid transparent; border-radius:var(--radius-card); padding:10px 14px; font-size:.78rem; font-weight:600;}
@@ -537,6 +541,7 @@ function pitchSlotPlayers(sideLineup, isHome, team){
     count++;
     var pitchY = isHome ? (50 + slot.y*0.5) : (50 - slot.y*0.5);
     html += '<div class="pitch-player" data-side="'+(isHome?'home':'away')+'" data-slot="'+slot.id+'" data-player="'+p.id+'" style="left:'+slot.x+'%;top:'+pitchY+'%">'
+      + '<span class="pp-pos">'+esc(slot.label)+'</span>'
       + numBadge(p, team)
       + '<span class="pp-name">'+esc(p.name)+'</span>'
     + '</div>';
@@ -895,8 +900,8 @@ function renderStats(){
   function rankHtml(list, colorClass){
     if(!list.length) return emptyRow('아직 기록이 없습니다');
     return '<div class="rank-list">'+list.map(function(r,i){
-      var team = teamById(r.p.teamId);
-      return '<div class="rank-row"><span class="rank-num">'+(i+1)+'</span><span class="rank-name">'+esc(r.p.name)+' <span class="rank-team">'+esc(team?team.name:'')+'</span></span><span class="rank-count'+(colorClass?' '+colorClass:'')+'">'+r.c+'</span></div>';
+      var team = teamById(r.p.teamId), first = i===0;
+      return '<div class="rank-row'+(first?' rank-row-first':'')+'"><span class="rank-num">'+(i+1)+'</span><span class="rank-name">'+esc(r.p.name)+(first?ICONS.trophy:'')+' <span class="rank-team">'+esc(team?team.name:'')+'</span></span><span class="rank-count'+(colorClass?' '+colorClass:'')+'">'+r.c+'</span></div>';
     }).join('')+'</div>';
   }
 
@@ -1044,7 +1049,7 @@ function renderAdminResults(){
       var pid = assigned[slot.id];
       var p = pid ? playerById(pid) : null;
       var inner = p
-        ? '<div class="drag-handle" data-side="'+side+'" data-slot="'+slot.id+'" data-player="'+p.id+'">'+numBadge(p, team)+'<span class="pp-name">'+esc(p.name)+'</span></div>'
+        ? '<div class="drag-handle" data-side="'+side+'" data-slot="'+slot.id+'" data-player="'+p.id+'"><span class="pp-pos">'+esc(slot.label)+'</span>'+numBadge(p, team)+'<span class="pp-name">'+esc(p.name)+'</span></div>'
         : '<div class="pitch-slot-empty" title="'+esc(slot.label)+'"></div>';
       return '<div class="drop-zone pitch-player" data-side="'+side+'" data-slot="'+slot.id+'" style="left:'+slot.x+'%;top:'+slot.y+'%">'+inner+'</div>';
     }).join('');
