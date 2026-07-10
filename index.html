@@ -175,10 +175,23 @@ table.standings td.pts{font-weight:800; color:var(--text);}
 .pitch-box-top{position:absolute; left:22%; right:22%; top:4%; height:12%; border:2px solid rgba(255,255,255,.38); border-top:none;}
 .pitch-box-bottom{position:absolute; left:22%; right:22%; bottom:4%; height:12%; border:2px solid rgba(255,255,255,.38); border-bottom:none;}
 .pitch-formation-tag{position:absolute; font-size:.62rem; font-weight:800; color:#fff; background:rgba(0,0,0,.32); padding:3px 8px; border-radius:999px; letter-spacing:.02em; z-index:2;}
-.pitch-player{position:absolute; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; gap:3px; width:58px; z-index:1;}
-.pitch-player .badge{border:2px solid rgba(255,255,255,.9); box-shadow:0 2px 6px rgba(0,0,0,.35);}
-.pp-name{font-size:.62rem; font-weight:700; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.8); text-align:center; line-height:1.15; max-width:64px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.pitch-player{position:absolute; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; gap:2px; width:15%; min-width:38px; max-width:64px; z-index:1; touch-action:none;}
+.jersey-badge{
+  position:relative; width:100%; aspect-ratio:1; margin:0 auto;
+  clip-path:polygon(30% 0%,70% 0%,70% 10%,100% 24%,84% 42%,70% 32%,70% 100%,30% 100%,30% 32%,16% 42%,0% 24%,30% 10%);
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 2px 6px rgba(0,0,0,.4); border:1px solid rgba(255,255,255,.5);
+}
+.jersey-num{color:#fff; font-weight:800; font-size:clamp(.7rem,3vw,1.05rem); text-shadow:0 1px 2px rgba(0,0,0,.45); font-variant-numeric:tabular-nums; line-height:1;}
+.pp-name{font-size:.62rem; font-weight:700; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.8); text-align:center; line-height:1.15; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .bench-title{font-size:.72rem; font-weight:800; color:var(--text-dim); text-transform:uppercase; letter-spacing:.04em; margin-bottom:8px; display:flex; align-items:center; gap:6px;}
+
+/* lineup / formation editor (admin) */
+.lineup-editor-grid{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+.lineup-editor-col .field{margin-bottom:10px;}
+.slot-row{display:flex; align-items:center; gap:8px; margin-bottom:6px;}
+.slot-tag{width:42px; flex:0 0 auto; font-size:.66rem; font-weight:800; color:var(--text-dim); background:var(--surface-2); border:1px solid var(--border); border-radius:6px; padding:4px 0; text-align:center;}
+.slot-row select{flex:1;}
 
 .timeline{position:relative; display:flex; flex-direction:column; gap:0;}
 .timeline::before{content:'';position:absolute; left:50%; top:2px; bottom:2px; width:2px; background:var(--border); transform:translateX(-50%);}
@@ -253,8 +266,6 @@ input[type=color]{width:44px; height:36px; padding:2px; background:var(--bg-elev
 .admin-row{display:flex; align-items:center; gap:8px; padding:10px; background:var(--bg-elevated); border:1px solid var(--border); border-radius:10px; flex-wrap:wrap;}
 .admin-row .grow{flex:1; min-width:120px;}
 .admin-row-title{font-weight:700; font-size:.82rem; flex:0 0 auto;}
-.checkbox-grid{display:grid; grid-template-columns:1fr 1fr; gap:4px 12px; max-height:220px; overflow-y:auto; padding:2px;}
-.check-item{display:flex; align-items:center; gap:6px; font-size:.8rem; padding:4px 0;}
 .event-add-row{display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-bottom:10px;}
 .event-list{display:flex; flex-direction:column; gap:6px; margin-top:10px;}
 .event-row-admin{display:flex; align-items:center; gap:8px; padding:7px 10px; background:var(--bg-elevated); border:1px solid var(--border); border-radius:8px; font-size:.78rem;}
@@ -282,9 +293,9 @@ hr.sep{border:none; border-top:1px solid var(--border); margin:14px 0;}
 
 @media (max-width:640px){
   .lineup-grid{grid-template-columns:1fr;}
+  .lineup-editor-grid{grid-template-columns:1fr;}
   .detail-score{font-size:1.9rem;}
   .form-grid{grid-template-columns:1fr;}
-  .checkbox-grid{grid-template-columns:1fr;}
   .event-add-row{grid-template-columns:1fr 1fr;}
 }
 </style>
@@ -346,6 +357,39 @@ var ICONS = {
   trophy:'<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="margin-left:3px;color:var(--gold)"><path d="M6 3h12v2h3v2a4 4 0 0 1-4 4h-.3A6 6 0 0 1 13 15.9V19h3v2H8v-2h3v-3.1A6 6 0 0 1 7.3 11H7A4 4 0 0 1 3 7V5h3V3zm0 4H5v0a2 2 0 0 0 2 2 7 7 0 0 1 0-2zm12 0a7 7 0 0 1 0 2 2 2 0 0 0 2-2V7h-2z"/></svg>'
 };
 
+/* Formation slot layouts. x/y are 0-100% within ONE team's own attacking half,
+   where y=0 is the halfway line (attack) and y=100 is the team's own goal line.
+   Rendering mirrors this per side (home plays bottom-up, away plays top-down) —
+   see pitchSlotPlayers(). group is the broad position used to suggest/sort roster
+   options; slot id is what a future drag-and-drop feature would move between. */
+var FORMATIONS = {
+  '4-4-2':[
+    {id:'GK',label:'GK',group:'GK',x:50,y:94},
+    {id:'LB',label:'LB',group:'DF',x:14,y:76},{id:'CB1',label:'CB',group:'DF',x:37,y:82},{id:'CB2',label:'CB',group:'DF',x:63,y:82},{id:'RB',label:'RB',group:'DF',x:86,y:76},
+    {id:'LM',label:'LM',group:'MF',x:14,y:48},{id:'CM1',label:'CM',group:'MF',x:37,y:52},{id:'CM2',label:'CM',group:'MF',x:63,y:52},{id:'RM',label:'RM',group:'MF',x:86,y:48},
+    {id:'ST1',label:'ST',group:'FW',x:37,y:18},{id:'ST2',label:'ST',group:'FW',x:63,y:18}
+  ],
+  '4-3-3':[
+    {id:'GK',label:'GK',group:'GK',x:50,y:94},
+    {id:'LB',label:'LB',group:'DF',x:14,y:76},{id:'CB1',label:'CB',group:'DF',x:37,y:82},{id:'CB2',label:'CB',group:'DF',x:63,y:82},{id:'RB',label:'RB',group:'DF',x:86,y:76},
+    {id:'CM1',label:'CM',group:'MF',x:28,y:52},{id:'CDM',label:'CDM',group:'MF',x:50,y:58},{id:'CM2',label:'CM',group:'MF',x:72,y:52},
+    {id:'LW',label:'LW',group:'FW',x:18,y:20},{id:'ST',label:'ST',group:'FW',x:50,y:14},{id:'RW',label:'RW',group:'FW',x:82,y:20}
+  ],
+  '4-2-3-1':[
+    {id:'GK',label:'GK',group:'GK',x:50,y:94},
+    {id:'LB',label:'LB',group:'DF',x:14,y:78},{id:'CB1',label:'CB',group:'DF',x:37,y:83},{id:'CB2',label:'CB',group:'DF',x:63,y:83},{id:'RB',label:'RB',group:'DF',x:86,y:78},
+    {id:'CDM1',label:'CDM',group:'MF',x:37,y:60},{id:'CDM2',label:'CDM',group:'MF',x:63,y:60},
+    {id:'LAM',label:'LAM',group:'MF',x:18,y:36},{id:'CAM',label:'CAM',group:'MF',x:50,y:33},{id:'RAM',label:'RAM',group:'MF',x:82,y:36},
+    {id:'ST',label:'ST',group:'FW',x:50,y:13}
+  ],
+  '3-5-2':[
+    {id:'GK',label:'GK',group:'GK',x:50,y:94},
+    {id:'CB1',label:'CB',group:'DF',x:30,y:80},{id:'CB2',label:'CB',group:'DF',x:50,y:84},{id:'CB3',label:'CB',group:'DF',x:70,y:80},
+    {id:'LWB',label:'LWB',group:'MF',x:11,y:52},{id:'CM1',label:'CM',group:'MF',x:33,y:50},{id:'CM2',label:'CM',group:'MF',x:50,y:54},{id:'CM3',label:'CM',group:'MF',x:67,y:50},{id:'RWB',label:'RWB',group:'MF',x:89,y:52},
+    {id:'ST1',label:'ST',group:'FW',x:38,y:18},{id:'ST2',label:'ST',group:'FW',x:62,y:18}
+  ]
+};
+
 var state = {
   teams:[], players:[], groups:[], matches:[], ratings:{}, motm:{},
   view:'home', matchId:null, cameFrom:'home',
@@ -397,84 +441,66 @@ function getScore(m){
   });
   return {home:home, away:away};
 }
+function emptySideLineup(){ return { formation:'4-4-2', slots:{} }; }
+function normalizeSideLineup(v){
+  if(v && typeof v==='object' && !Array.isArray(v)){
+    return { formation: (v.formation && FORMATIONS[v.formation]) ? v.formation : '4-4-2', slots: v.slots || {} };
+  }
+  return emptySideLineup(); // legacy array shape or missing -> start fresh
+}
+function normalizeLineups(lineups){
+  return { home: normalizeSideLineup(lineups && lineups.home), away: normalizeSideLineup(lineups && lineups.away) };
+}
 function lineupPlayers(m){
-  var homeIds = (m.lineups && m.lineups.home && m.lineups.home.length) ? m.lineups.home : state.players.filter(function(p){ return p.teamId===m.homeTeamId; }).map(function(p){ return p.id; });
-  var awayIds = (m.lineups && m.lineups.away && m.lineups.away.length) ? m.lineups.away : state.players.filter(function(p){ return p.teamId===m.awayTeamId; }).map(function(p){ return p.id; });
+  var homeIds = Object.values(m.lineups.home.slots);
+  var awayIds = Object.values(m.lineups.away.slots);
+  if(!homeIds.length) homeIds = state.players.filter(function(p){ return p.teamId===m.homeTeamId; }).map(function(p){ return p.id; });
+  if(!awayIds.length) awayIds = state.players.filter(function(p){ return p.teamId===m.awayTeamId; }).map(function(p){ return p.id; });
   return homeIds.concat(awayIds).map(playerById).filter(Boolean);
 }
-function formationRows(players){
-  var gk = players.filter(function(p){ return p.position==='GK'; });
-  var df = players.filter(function(p){ return p.position==='DF'; });
-  var mf = players.filter(function(p){ return p.position==='MF'; });
-  var fw = players.filter(function(p){ return p.position==='FW'; });
-  var rows = [];
-  if(gk.length) rows.push(gk);
-  if(df.length) rows.push(df);
-  if(mf.length) rows.push(mf);
-  if(fw.length) rows.push(fw);
-  return rows;
+function jerseyBadge(p, team){
+  return '<div class="jersey-badge" style="background:'+esc((team&&team.color)||'#666')+'"><span class="jersey-num">'+(p.number!=null?esc(p.number):'-')+'</span></div>';
 }
-function formationLabel(players){
-  var df = players.filter(function(p){ return p.position==='DF'; }).length;
-  var mf = players.filter(function(p){ return p.position==='MF'; }).length;
-  var fw = players.filter(function(p){ return p.position==='FW'; }).length;
-  var parts = [df,mf,fw].filter(function(n){ return n>0; });
-  return parts.length ? parts.join('-') : '-';
-}
-function rowYs(rowCount, isHome){
-  var ownGoalY = isHome ? 93 : 7;
-  var halfwayY = isHome ? 57 : 43;
-  var ys = [];
-  for(var i=0;i<rowCount;i++){
-    ys.push(rowCount===1 ? ownGoalY : ownGoalY + (halfwayY-ownGoalY)*(i/(rowCount-1)));
-  }
-  return ys;
-}
-function rowXs(count){
-  if(count===1) return [50];
-  var xs = [], left = 14, right = 86;
-  for(var j=0;j<count;j++){ xs.push(left + (right-left)*(j/(count-1))); }
-  return xs;
-}
-function pitchPlayersHtml(players, isHome, team){
-  var rows = formationRows(players);
-  var ys = rowYs(rows.length, isHome);
-  var html = '';
-  rows.forEach(function(row, ri){
-    var xs = rowXs(row.length);
-    row.forEach(function(p, ci){
-      html += '<div class="pitch-player" style="left:'+xs[ci]+'%;top:'+ys[ri]+'%">'
-        + teamBadge(team)
-        + '<span class="pp-name">'+esc(p.name)+'</span>'
-      + '</div>';
-    });
+function pitchSlotPlayers(sideLineup, isHome, team){
+  var formation = sideLineup.formation;
+  var slots = FORMATIONS[formation] || FORMATIONS['4-4-2'];
+  var assigned = sideLineup.slots || {};
+  var html = '', count = 0;
+  slots.forEach(function(slot){
+    var p = assigned[slot.id] ? playerById(assigned[slot.id]) : null;
+    if(!p) return;
+    count++;
+    var pitchY = isHome ? (50 + slot.y*0.5) : (50 - slot.y*0.5);
+    html += '<div class="pitch-player" data-side="'+(isHome?'home':'away')+'" data-slot="'+slot.id+'" data-player="'+p.id+'" style="left:'+slot.x+'%;top:'+pitchY+'%">'
+      + jerseyBadge(p, team)
+      + '<span class="pp-name">'+esc(p.name)+'</span>'
+    + '</div>';
   });
-  return html;
+  return { html:html, count:count, formation:formation };
 }
 function benchColumn(team, bench){
   return '<div><div class="lineup-col-title">'+teamBadge(team)+(team?esc(team.name):'')+' 벤치</div>'
-    + (bench.length ? bench.map(function(p){ return '<div class="player-row">'+posTag(p.position)+'<span>'+esc(p.name)+'</span></div>'; }).join('') : emptyRow('벤치 선수 없음'))
+    + (bench.length ? bench.map(function(p){ return '<div class="player-row">'+posTag(p.position)+'<span>#'+(p.number!=null?esc(p.number):'-')+' '+esc(p.name)+'</span></div>'; }).join('') : emptyRow('벤치 선수 없음'))
   + '</div>';
 }
 function pitchCard(m){
   var home = teamById(m.homeTeamId), away = teamById(m.awayTeamId);
-  var homeIds = (m.lineups && m.lineups.home) || [];
-  var awayIds = (m.lineups && m.lineups.away) || [];
-  var homeStart = homeIds.map(playerById).filter(Boolean);
-  var awayStart = awayIds.map(playerById).filter(Boolean);
-  if(!homeStart.length && !awayStart.length){
+  var homeRes = pitchSlotPlayers(m.lineups.home, true, home);
+  var awayRes = pitchSlotPlayers(m.lineups.away, false, away);
+  if(!homeRes.count && !awayRes.count){
     return '<div class="card"><h3>라인업</h3>'+emptyRow('아직 라인업이 등록되지 않았습니다')+'</div>';
   }
   var pitch = '<div class="pitch-wrap">'
     + '<div class="pitch-outline"></div><div class="pitch-box-top"></div><div class="pitch-box-bottom"></div>'
     + '<div class="pitch-halfway"></div><div class="pitch-circle"></div>'
-    + '<span class="pitch-formation-tag" style="top:8px;left:8px">'+esc(away?away.name:'원정')+' · '+formationLabel(awayStart)+'</span>'
-    + '<span class="pitch-formation-tag" style="bottom:8px;left:8px">'+esc(home?home.name:'홈')+' · '+formationLabel(homeStart)+'</span>'
-    + pitchPlayersHtml(homeStart, true, home)
-    + pitchPlayersHtml(awayStart, false, away)
+    + '<span class="pitch-formation-tag" style="top:8px;left:8px">'+esc(away?away.name:'원정')+' · '+awayRes.formation+'</span>'
+    + '<span class="pitch-formation-tag" style="bottom:8px;left:8px">'+esc(home?home.name:'홈')+' · '+homeRes.formation+'</span>'
+    + homeRes.html + awayRes.html
   + '</div>';
-  var homeBench = state.players.filter(function(p){ return p.teamId===m.homeTeamId && homeIds.indexOf(p.id)===-1; });
-  var awayBench = state.players.filter(function(p){ return p.teamId===m.awayTeamId && awayIds.indexOf(p.id)===-1; });
+  var homeAssignedIds = Object.values(m.lineups.home.slots);
+  var awayAssignedIds = Object.values(m.lineups.away.slots);
+  var homeBench = state.players.filter(function(p){ return p.teamId===m.homeTeamId && homeAssignedIds.indexOf(p.id)===-1; });
+  var awayBench = state.players.filter(function(p){ return p.teamId===m.awayTeamId && awayAssignedIds.indexOf(p.id)===-1; });
   var bench = '<div class="lineup-grid" style="margin-top:14px">'+benchColumn(home,homeBench)+benchColumn(away,awayBench)+'</div>';
   return '<div class="card"><h3>라인업</h3>'+pitch+bench+'</div>';
 }
@@ -513,7 +539,9 @@ function applyDocValue(name, val){
   if(val==null) val = DEFAULTS[name];
   if(name==='matches'){
     state.matches = (val||[]).map(function(m){
-      return Object.assign({ events:[], lineups:{home:[],away:[]}, status:'scheduled' }, m);
+      var merged = Object.assign({ events:[], status:'scheduled' }, m);
+      merged.lineups = normalizeLineups(merged.lineups);
+      return merged;
     });
   } else {
     state[name] = val;
@@ -819,6 +847,7 @@ function renderAdminPlayers(){
     var posOpts = Object.keys(POS_LABEL).map(function(k){ return '<option value="'+k+'"'+(p.position===k?' selected':'')+'>'+k+' '+POS_LABEL[k]+'</option>'; }).join('');
     var tOpts = state.teams.map(function(t){ return '<option value="'+t.id+'"'+(p.teamId===t.id?' selected':'')+'>'+esc(t.name)+'</option>'; }).join('');
     return '<div class="admin-row">'
+      + '<input type="number" min="0" style="width:60px;flex:0 0 auto" value="'+(p.number!=null?p.number:'')+'" placeholder="#" onchange="App.updatePlayerField(\''+p.id+'\',\'number\',this.value)">'
       + '<input type="text" class="grow" value="'+esc(p.name)+'" onchange="App.updatePlayerField(\''+p.id+'\',\'name\',this.value)">'
       + '<select onchange="App.updatePlayerField(\''+p.id+'\',\'position\',this.value)">'+posOpts+'</select>'
       + '<select onchange="App.updatePlayerField(\''+p.id+'\',\'teamId\',this.value)">'+tOpts+'</select>'
@@ -828,8 +857,9 @@ function renderAdminPlayers(){
   return '<div class="card"><h3>선수 등록</h3>'
     + '<div class="form-grid">'
       + '<div class="field"><label>이름</label><input type="text" id="newPlayerName" placeholder="선수 이름"></div>'
+      + '<div class="field"><label>등번호</label><input type="number" min="0" id="newPlayerNumber" placeholder="예: 10"></div>'
       + '<div class="field"><label>포지션</label><select id="newPlayerPos"><option value="GK">GK 골키퍼</option><option value="DF">DF 수비수</option><option value="MF" selected>MF 미드필더</option><option value="FW">FW 공격수</option></select></div>'
-      + '<div class="field full"><label>소속 팀</label><select id="newPlayerTeam">'+teamOpts+'</select></div>'
+      + '<div class="field"><label>소속 팀</label><select id="newPlayerTeam">'+teamOpts+'</select></div>'
     + '</div>'
     + '<button class="btn btn-primary" style="margin-top:10px" data-act="add-player">선수 추가</button>'
     + '<hr class="sep">'
@@ -905,31 +935,38 @@ function renderAdminResults(){
   if(!m) return html;
 
   var home = teamById(m.homeTeamId), away = teamById(m.awayTeamId);
-  var homeRoster = state.players.filter(function(p){ return p.teamId===m.homeTeamId; });
-  var awayRoster = state.players.filter(function(p){ return p.teamId===m.awayTeamId; });
-  var homeLineup = (m.lineups && m.lineups.home) || [];
-  var awayLineup = (m.lineups && m.lineups.away) || [];
+  var homeRoster = state.players.filter(function(p){ return p.teamId===m.homeTeamId; }).sort(function(a,b){ return (a.number!=null?a.number:999)-(b.number!=null?b.number:999); });
+  var awayRoster = state.players.filter(function(p){ return p.teamId===m.awayTeamId; }).sort(function(a,b){ return (a.number!=null?a.number:999)-(b.number!=null?b.number:999); });
 
-  function checkGrid(roster, side, checked){
-    if(!roster.length) return emptyRow('선수가 없습니다');
-    return '<div class="checkbox-grid">'+roster.map(function(p){
-      return '<label class="check-item"><input type="checkbox" '+(checked.indexOf(p.id)>-1?'checked':'')+' onchange="App.toggleLineup(\''+m.id+'\',\''+side+'\',\''+p.id+'\',this.checked)">'+esc(p.name)+'</label>';
-    }).join('')+'</div>';
+  function slotRow(side, slot, roster){
+    var assignedId = m.lineups[side].slots[slot.id] || '';
+    var opts = '<option value="">미배정</option>' + roster.map(function(p){
+      return '<option value="'+p.id+'"'+(assignedId===p.id?' selected':'')+'>#'+(p.number!=null?p.number:'-')+' '+esc(p.name)+'</option>';
+    }).join('');
+    return '<div class="slot-row"><span class="slot-tag">'+slot.label+'</span><select onchange="App.assignSlot(\''+m.id+'\',\''+side+'\',\''+slot.id+'\',this.value)">'+opts+'</select></div>';
   }
-  html += '<div class="card"><h3>라인업 선택</h3>'
-    + '<div class="lineup-grid">'
-      + '<div><div class="lineup-col-title">'+teamBadge(home)+esc(home?home.name:'')+'</div>'+checkGrid(homeRoster,'home',homeLineup)+'</div>'
-      + '<div><div class="lineup-col-title">'+teamBadge(away)+esc(away?away.name:'')+'</div>'+checkGrid(awayRoster,'away',awayLineup)+'</div>'
-    + '</div></div>';
+  function lineupEditorCol(side, team, roster){
+    var sideLineup = m.lineups[side];
+    var fOpts = Object.keys(FORMATIONS).map(function(f){ return '<option value="'+f+'"'+(sideLineup.formation===f?' selected':'')+'>'+f+'</option>'; }).join('');
+    if(!roster.length) return '<div><div class="lineup-col-title">'+teamBadge(team)+esc(team?team.name:'')+'</div>'+emptyRow('선수가 없습니다')+'</div>';
+    return '<div class="lineup-editor-col"><div class="lineup-col-title">'+teamBadge(team)+esc(team?team.name:'')+'</div>'
+      + '<div class="field"><label>포메이션</label><select onchange="App.setFormation(\''+m.id+'\',\''+side+'\',this.value)">'+fOpts+'</select></div>'
+      + FORMATIONS[sideLineup.formation].map(function(slot){ return slotRow(side, slot, roster); }).join('')
+    + '</div>';
+  }
+  html += '<div class="card"><h3>라인업 / 포메이션</h3><div class="lineup-editor-grid">'
+    + lineupEditorCol('home', home, homeRoster) + lineupEditorCol('away', away, awayRoster)
+  + '</div></div>';
 
   html += '<div class="card"><h3>경기 상태</h3><div class="status-btns">'
     + ['scheduled','live','finished'].map(function(k){ var l={scheduled:'예정',live:'진행중',finished:'종료'}[k]; return '<button class="btn'+(m.status===k?' btn-primary':'')+'" data-act="set-match-status" data-id="'+m.id+'" data-status="'+k+'">'+l+'</button>'; }).join('')
   + '</div></div>';
 
   function selOpts(list){
-    return list.map(function(p){ return '<option value="'+p.id+'">'+esc(p.name)+'</option>'; }).join('');
+    return list.map(function(p){ return '<option value="'+p.id+'">#'+(p.number!=null?p.number:'-')+' '+esc(p.name)+'</option>'; }).join('');
   }
-  var homeLineupPlayers = homeLineup.length ? homeLineup.map(playerById).filter(Boolean) : homeRoster;
+  var homeSlotIds = Object.values(m.lineups.home.slots);
+  var homeLineupPlayers = homeSlotIds.length ? homeSlotIds.map(playerById).filter(Boolean) : homeRoster;
   var events = (m.events||[]).slice().sort(function(a,b){ return a.minute-b.minute; });
   html += '<div class="card"><h3>이벤트 추가</h3>'
     + '<div class="event-add-row">'
@@ -986,23 +1023,36 @@ function deleteTeam(id){
 function addPlayer(){
   if(state.teams.length===0){ toast('먼저 팀을 등록해주세요','error'); return; }
   var name = document.getElementById('newPlayerName').value.trim();
+  var numRaw = document.getElementById('newPlayerNumber').value;
   var pos = document.getElementById('newPlayerPos').value;
   var teamId = document.getElementById('newPlayerTeam').value;
   if(!name){ toast('선수 이름을 입력해주세요','error'); return; }
-  state.players.push({ id: uid('player'), name: name, position: pos, teamId: teamId });
+  var number = parseInt(numRaw, 10);
+  if(numRaw===''||isNaN(number)||number<0){ toast('올바른 등번호를 입력해주세요','error'); return; }
+  var dup = state.players.some(function(p){ return p.teamId===teamId && p.number===number; });
+  if(dup){ toast('이미 사용 중인 등번호입니다','error'); return; }
+  state.players.push({ id: uid('player'), name: name, number: number, position: pos, teamId: teamId });
   persist('players'); render(); toast('선수가 추가되었습니다','success');
 }
 function updatePlayerField(id, field, val){
   var p = playerById(id); if(!p) return;
+  if(field==='number'){
+    var number = parseInt(val, 10);
+    if(val===''||isNaN(number)||number<0){ toast('올바른 등번호를 입력해주세요','error'); render(); return; }
+    var dup = state.players.some(function(x){ return x.id!==id && x.teamId===p.teamId && x.number===number; });
+    if(dup){ toast('이미 사용 중인 등번호입니다','error'); render(); return; }
+    p.number = number; persist('players'); render(); return;
+  }
   p[field] = val; persist('players'); render();
 }
 function deletePlayer(id){
   state.players = state.players.filter(function(p){ return p.id!==id; });
   state.matches.forEach(function(m){
-    if(m.lineups){
-      m.lineups.home = (m.lineups.home||[]).filter(function(pid){ return pid!==id; });
-      m.lineups.away = (m.lineups.away||[]).filter(function(pid){ return pid!==id; });
-    }
+    ['home','away'].forEach(function(side){
+      var slots = m.lineups && m.lineups[side] && m.lineups[side].slots;
+      if(!slots) return;
+      Object.keys(slots).forEach(function(slotId){ if(slots[slotId]===id) delete slots[slotId]; });
+    });
     m.events = (m.events||[]).filter(function(e){ return e.playerId!==id && e.assistPlayerId!==id && e.playerInId!==id; });
   });
   persist('players'); persist('matches'); toast('선수가 삭제되었습니다','success');
@@ -1031,7 +1081,7 @@ function addMatch(){
   var awayTeamId = document.getElementById('newMatchAway').value;
   if(!date){ toast('경기 일시를 입력해주세요','error'); return; }
   if(homeTeamId===awayTeamId){ toast('홈팀과 원정팀은 서로 달라야 합니다','error'); return; }
-  state.matches.push({ id: uid('match'), date: date, groupId: groupId, homeTeamId: homeTeamId, awayTeamId: awayTeamId, status:'scheduled', events:[], lineups:{home:[],away:[]} });
+  state.matches.push({ id: uid('match'), date: date, groupId: groupId, homeTeamId: homeTeamId, awayTeamId: awayTeamId, status:'scheduled', events:[], lineups:{home:emptySideLineup(),away:emptySideLineup()} });
   persist('matches'); render(); toast('경기가 추가되었습니다','success');
 }
 function updateMatchField(id, field, val){
@@ -1053,19 +1103,24 @@ function updateEvtPlayerOptions(){
   var assistSel = document.getElementById('evtAssist');
   if(!teamSel || !playerSel || !assistSel) return;
   var teamId = teamSel.value;
-  var lineupIds = teamId===m.homeTeamId ? (m.lineups&&m.lineups.home) : (m.lineups&&m.lineups.away);
-  var roster = (lineupIds && lineupIds.length) ? lineupIds.map(playerById).filter(Boolean) : state.players.filter(function(p){ return p.teamId===teamId; });
-  var opts = roster.map(function(p){ return '<option value="'+p.id+'">'+esc(p.name)+'</option>'; }).join('');
+  var side = teamId===m.homeTeamId ? 'home' : 'away';
+  var slotIds = Object.values(m.lineups[side].slots);
+  var roster = slotIds.length ? slotIds.map(playerById).filter(Boolean) : state.players.filter(function(p){ return p.teamId===teamId; });
+  var opts = roster.map(function(p){ return '<option value="'+p.id+'">#'+(p.number!=null?p.number:'-')+' '+esc(p.name)+'</option>'; }).join('');
   playerSel.innerHTML = opts;
   assistSel.innerHTML = '<option value="">도움 없음 / 교체 IN 선택 (선택)</option>' + opts;
 }
-function toggleLineup(matchId, side, playerId, checked){
+function setFormation(matchId, side, formationKey){
   var m = state.matches.find(function(x){ return x.id===matchId; }); if(!m) return;
-  if(!m.lineups) m.lineups = {home:[],away:[]};
-  var arr = m.lineups[side] || (m.lineups[side]=[]);
-  var idx = arr.indexOf(playerId);
-  if(checked && idx===-1) arr.push(playerId);
-  if(!checked && idx>-1) arr.splice(idx,1);
+  if(!FORMATIONS[formationKey]) return;
+  m.lineups[side] = { formation: formationKey, slots: {} };
+  persist('matches'); render();
+}
+function assignSlot(matchId, side, slotId, playerId){
+  var m = state.matches.find(function(x){ return x.id===matchId; }); if(!m) return;
+  var slots = m.lineups[side].slots;
+  Object.keys(slots).forEach(function(k){ if(slots[k]===playerId) delete slots[k]; });
+  if(playerId){ slots[slotId] = playerId; } else { delete slots[slotId]; }
   persist('matches'); render();
 }
 function setMatchStatus(matchId, status){
@@ -1226,7 +1281,8 @@ window.App = {
   updateGroupField: updateGroupField,
   updateMatchField: updateMatchField,
   selectAdminMatch: selectAdminMatch,
-  toggleLineup: toggleLineup,
+  setFormation: setFormation,
+  assignSlot: assignSlot,
   updateEvtPlayerOptions: updateEvtPlayerOptions,
   render: render
 };
